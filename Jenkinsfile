@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         DOCKER_TAG = 'nextjs-mp-test'
-        PORT = "3000"
+        PORT = "3269"
         BASE_PATH = "/mp-test"
     }
     stages {

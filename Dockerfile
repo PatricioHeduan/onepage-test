@@ -11,7 +11,6 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=builder /app/.next /usr/share/nginx/html/mp-test
 COPY --from=builder /app/public /usr/share/nginx/html/mp-test
-COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
 CMD ["nginx", "-g", "daemon off;"]
