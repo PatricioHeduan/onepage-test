@@ -6,7 +6,7 @@ function App() {
     
     const mp = new window.MercadoPago(import.meta.env.VITE_MP_PUBLIC_KEY, {
       locale: 'es-AR',
-      site_id: "MLA",
+      site_id: 'MLA',
     });
 
     const cardForm = mp.cardForm({
