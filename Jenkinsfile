@@ -3,6 +3,7 @@ pipeline {
     environment {
         DOCKER_TAG = 'mp-test'
         PORT = "3670"
+        VITE_MP_PUBLIC_KEY=credentials("VITE_MP_PUBLIC_KEY")
         }
     stages {
         stage('Build') {
@@ -21,7 +22,7 @@ pipeline {
                 sh 'docker rm $DOCKER_TAG || echo Nothing to remove'
 
                 echo 'Starting new container on port ${PORT}...'
-                sh 'docker run -d -p $PORT:3000 --name $DOCKER_TAG $DOCKER_TAG:1.0'
+                sh 'docker run -d -e VITE_MP_PUBLIC_KEY -p $PORT:3000 --name $DOCKER_TAG $DOCKER_TAG:1.0'
             }
         }
     }
