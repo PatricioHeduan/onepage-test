@@ -1,34 +1,27 @@
 pipeline {
     agent any
     environment {
-        DOCKER_TAG = 'nextjs-mp-test'
-        PORT = "3269"
-        BASE_PATH = "/mp-test"
-    }
+        DOCKER_TAG = 'mp-test'
+        PORT = "3670"
+        }
     stages {
         stage('Build') {
             steps {
-                echo 'Building Docker image...'
+                echo 'Building...'
                 sh '''
                 docker build \
-                --build-arg BASE_PATH="${BASE_PATH}" \
-                -t ${DOCKER_TAG}:1.0 .
+                  -t ${DOCKER_TAG}:1.0 .
                 '''
             }
         }
         stage('Deploy') {
             steps {
-                echo 'Stopping previous version...'
+                echo 'Stopping previous container...'
                 sh 'docker stop $DOCKER_TAG || echo Nothing to stop'
                 sh 'docker rm $DOCKER_TAG || echo Nothing to remove'
-                echo 'Deploying new version...'
-                sh '''
-                docker run -d \
-                -e BASE_PATH="${BASE_PATH}" \
-                -p $PORT:3000 \
-                --name $DOCKER_TAG \
-                ${DOCKER_TAG}:1.0
-                '''
+
+                echo 'Starting new container on port ${PORT}...'
+                sh 'docker run -d -p $PORT:3000 --name $DOCKER_TAG $DOCKER_TAG:1.0'
             }
         }
     }

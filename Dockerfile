@@ -1,16 +1,24 @@
-# Stage 1: Build the Next.js app
-FROM node:18 AS builder
+# 1. Build stage
+FROM node:20-alpine AS builder
+
 WORKDIR /app
+
+COPY package.json package-lock.json* yarn.lock* ./
+RUN npm install --legacy-peer-deps
+
 COPY . .
-ARG BASE_PATH
-ENV NEXT_PUBLIC_BASE_PATH=$BASE_PATH
-RUN npm install
 RUN npm run build
 
-# Stage 2: Serve the app with Nginx
-FROM nginx:alpine
-COPY --from=builder /app/.next /usr/share/nginx/html/mp-test
-COPY --from=builder /app/public /usr/share/nginx/html/mp-test
+# 2. Serve stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN npm install -g serve
+
+COPY --from=builder /app/dist /app
 
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+
+# Servimos desde el root (/) y Nginx lo montará en /live-vote/
+CMD ["serve", "-s", ".", "-l", "3000", "--single"]
