@@ -11,7 +11,8 @@ pipeline {
                 echo 'Building...'
                 sh '''
                 docker build \
-                  -t ${DOCKER_TAG}:1.0 .
+                    --build-arg VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
+                    -t ${DOCKER_TAG}:1.0 .
                 '''
             }
         }
