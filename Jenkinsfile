@@ -9,11 +9,8 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building...'
-                sh '''
-                docker build \
-                    --build-arg VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
-                    -t ${DOCKER_TAG}:1.0 .
-                '''
+                sh 'docker buildx build --build-arg VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY} -t ${DOCKER_TAG}:1.0 .'
+
             }
         }
         stage('Deploy') {
