@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        DOCKER_TAG = 'mp-test'
+        DOCKER_TAG = 'timer-frontend'
         PORT = "3670"
         }
     stages {

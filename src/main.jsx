@@ -7,7 +7,7 @@ import './index.css'
 
 function AppRouter() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/timer">
       <div className="nav">
         <Link to="/start">Start</Link>
         <Link to="/sync">Sync</Link>
