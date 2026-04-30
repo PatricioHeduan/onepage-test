@@ -41,7 +41,10 @@ export default function Start() {
     postTimerNetwork({ seconds: totalSeconds }).then(res => {
       if (res.source === 'server') {
         // use server expireAt if provided; capture id if returned
-        if (res.data && res.data.id) setTimerId(res.data.id)
+        if (res.data && res.data.id) {
+          setTimerId(res.data.id)
+          try { localStorage.setItem('sync.timer.id', String(res.data.id)) } catch (e) {}
+        }
       } else {
         console.log('Saved locally (server unavailable):', res.error)
       }
@@ -52,10 +55,12 @@ export default function Start() {
     setRunning(false)
     clearInterval(intervalRef.current)
     // perform hard delete if we have an id from server
-    if (timerId) {
-      deleteTimerNetwork(timerId).then(res => {
+    const storedId = timerId || localStorage.getItem('sync.timer.id')
+    if (storedId) {
+      deleteTimerNetwork(storedId).then(res => {
         if (!res.ok) console.warn('Failed to delete timer:', res.error)
         setTimerId(null)
+        try { localStorage.removeItem('sync.timer.id') } catch (e) {}
       })
     }
   }

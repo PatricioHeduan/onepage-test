@@ -29,16 +29,23 @@ export default function Sync() {
     try {
       const res = await fetchTimerNetwork()
       const data = res.data
-      if (data && data.expireAt && data.expireAt > Date.now()) {
-        // we have a valid future expireAt -> show timer and stop polling
+      // if server returned a timer object with id, adopt it if different
+      if (data && data.id) {
+        try {
+          const stored = localStorage.getItem('sync.timer.id')
+          if (String(stored) !== String(data.id)) {
+            localStorage.setItem('sync.timer.id', String(data.id))
+          }
+        } catch (e) {}
+      }
+      if (data && data.expireAt) {
         const msLeft = data.expireAt - Date.now()
         setRemaining(Math.max(0, Math.ceil(msLeft / 1000)))
-        stopPolling()
       } else {
-        // no valid timer yet: clear remaining and start polling
         setRemaining(null)
-        startPolling()
       }
+      // ensure polling is running so new timers are detected
+      startPolling()
     } catch (e) {
       setRemaining(null)
       // on network error, keep polling active so it can recover
@@ -50,8 +57,9 @@ export default function Sync() {
   }
 
   useEffect(() => {
-    // initial refresh (do not start polling until refresh decides)
+    // initial refresh and start polling always
     refresh()
+    startPolling()
     return () => {
       clearInterval(intervalRef.current)
       stopPolling()
@@ -90,7 +98,7 @@ export default function Sync() {
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
         {remaining != null ? (
-          <div style={{fontSize:300,fontWeight:700}}>{formatTime(remaining)}</div>
+          <div style={{fontSize:96,fontWeight:700,lineHeight:1}}>{formatTime(remaining)}</div>
         ) : (
           <div style={{fontSize:28,color:'#888'}}>No timer found</div>
         )}
