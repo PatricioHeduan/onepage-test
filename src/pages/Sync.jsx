@@ -1,73 +1,79 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { fetchTimerNetwork } from '../lib/api'
-import { clearTimer } from '../lib/storage'
 
 export default function Sync() {
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState(null)
-  const [error, setError] = useState(null)
   const [remaining, setRemaining] = useState(null)
-  const tickRef = useRef(null)
+  const intervalRef = useRef(null)
 
-  const fetchTimer = async () => {
+  const refresh = async () => {
     setLoading(true)
-    setError(null)
     try {
       const res = await fetchTimerNetwork()
-      setData(res.data)
-      // if we have an expireAt, compute remaining and start interval
-      if (res.data && res.data.expireAt) {
-        const ms = typeof res.data.expireAt === 'number' ? res.data.expireAt : Date.parse(res.data.expireAt)
-        const update = () => {
-          const rem = Math.max(0, Math.ceil((ms - Date.now()) / 1000))
-          setRemaining(rem)
-        }
-        update()
-        clearInterval(tickRef.current)
-        tickRef.current = setInterval(update, 1000)
+      const data = res.data
+      if (data && data.expireAt) {
+        const msLeft = data.expireAt - Date.now()
+        setRemaining(Math.max(0, Math.ceil(msLeft / 1000)))
       } else {
-        clearInterval(tickRef.current)
         setRemaining(null)
       }
-      if (res.source === 'local' && res.error) {
-        setError('Network error: ' + res.error + ' (using local cache)')
-      }
-    } catch (err) {
-      setError(err.message ?? String(err))
+    } catch (e) {
+      setRemaining(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const clearStored = async () => {
-    await clearTimer()
-    setData(null)
-    clearInterval(tickRef.current)
-    setRemaining(null)
+  useEffect(() => {
+    // initial refresh
+    refresh()
+    return () => clearInterval(intervalRef.current)
+  }, [])
+
+  useEffect(() => {
+    clearInterval(intervalRef.current)
+    if (remaining != null) {
+      intervalRef.current = setInterval(() => {
+        setRemaining(r => (r > 0 ? r - 1 : 0))
+      }, 1000)
+    }
+    return () => clearInterval(intervalRef.current)
+  }, [remaining])
+
+  function formatTime(s) {
+    const mm = Math.floor(s / 60)
+    const ss = s % 60
+    return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
   }
 
   return (
-    <div className="page">
-      <h1>Sync - Timer from frontend storage</h1>
-      <p>Reads the timer record saved by /start (localStorage).</p>
-      <div className="actions">
-        <button onClick={fetchTimer} disabled={loading}>{loading ? 'Loading...' : 'Load timer'}</button>
-        <button onClick={clearStored}>Clear</button>
+    <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
+      <div style={{padding:32,textAlign:'center'}}>
+        <button
+          onClick={refresh}
+          style={{fontSize:20,padding:'14px 28px',borderRadius:10,display:'inline-flex',alignItems:'center',gap:10}}
+          disabled={loading}
+        >
+          {loading ? (
+            'Loading...'
+          ) : (
+            <>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M21 12a9 9 0 10-2.6 6.01" stroke="#04293a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M21 3v6h-6" stroke="#04293a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </>
+          )}
+        </button>
       </div>
 
-      {error && <div className="error">Error: {error}</div>}
-
-      {data ? (
-        <div className="result">
-          {remaining != null ? (
-            <div>Remaining: {Math.floor(remaining/60)}:{String(remaining%60).padStart(2,'0')}</div>
-          ) : (
-            <pre>{JSON.stringify(data, null, 2)}</pre>
-          )}
-        </div>
-      ) : (
-        <div className="result">No timer record found.</div>
-      )}
+      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {remaining != null ? (
+          <div style={{fontSize:'min(60vw,360px)',fontWeight:800,lineHeight:1}}>{formatTime(remaining)}</div>
+        ) : (
+          <div style={{fontSize:36,color:'#888'}}>No timer found</div>
+        )}
+      </div>
     </div>
   )
 }
