@@ -1,10 +1,10 @@
 // Simple frontend storage for the timer record using localStorage.
-// We store the total `seconds` and `expireAt`.
+// We store `seconds` and `startedAt` (ms since epoch).
 
 const KEY = 'app.timer.record'
 
 export async function saveTimer(record) {
-  // record: { seconds, expireAt }
+  // record: { seconds, startedAt, id? }
   localStorage.setItem(KEY, JSON.stringify(record))
   return record
 }

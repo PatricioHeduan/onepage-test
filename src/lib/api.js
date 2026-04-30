@@ -28,8 +28,9 @@ function parseIsoToMs(iso) {
 }
 
 export async function postTimerNetwork({ seconds }) {
-  // API sends only total seconds; backend should accept { seconds }
-  const body = { seconds, clientId: getClientId() }
+  // API sends total seconds and startedAt; backend should accept { seconds, startedAt }
+  const startedAt = Date.now()
+  const body = { seconds, startedAt, clientId: getClientId() }
   try {
     const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/', {
       method: 'POST',
@@ -38,20 +39,24 @@ export async function postTimerNetwork({ seconds }) {
     })
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const json = await res.json()
-    // Support responses that wrap data: { message, data: { seconds, expireAt, ... } }
+    // Support responses that wrap data: { message, data: { seconds, startedAt or expireAt, id, ... } }
     const payload = json && json.data ? json.data : json
-    // normalize expireAt (server may return ISO with microseconds)
-    if (payload && payload.expireAt) {
+    // If server returned expireAt, convert to startedAt using the seconds value
+    if (payload && payload.expireAt && payload.seconds) {
       const ms = parseIsoToMs(payload.expireAt)
-      if (ms) payload.expireAt = ms
+      if (ms) payload.startedAt = ms - (payload.seconds * 1000)
     }
-    // persist locally as cache/fallback
-    try { await saveTimer({ seconds: payload.seconds ?? seconds, expireAt: payload.expireAt, ...payload }) } catch (e) {}
+    // If server returned startedAt as string or number, normalize to number
+    if (payload && payload.startedAt) {
+      const ms = parseIsoToMs(payload.startedAt)
+      if (ms) payload.startedAt = ms
+    }
+    // persist locally as cache/fallback (we store seconds + startedAt)
+    try { await saveTimer({ seconds: payload.seconds ?? seconds, startedAt: payload.startedAt ?? startedAt, id: payload.id, ...payload }) } catch (e) {}
     return { source: 'server', data: payload }
   } catch (err) {
     // fallback to local save
-    const expireAt = Date.now() + seconds * 1000
-    const record = { seconds, expireAt, createdBy: getClientId() }
+    const record = { seconds, startedAt, createdBy: getClientId() }
     await saveTimer(record)
     return { source: 'local', data: record, error: err.message }
   }
@@ -65,14 +70,18 @@ export async function fetchTimerNetwork() {
     // Support wrapped responses: { message, data: {...} }
     if (json && json.found === false) return { source: 'server', data: null }
     const payload = json && json.data ? json.data : json
-    // normalize expireAt on the payload
-    if (payload && payload.expireAt) {
+    // If payload has expireAt + seconds, convert to startedAt
+    if (payload && payload.expireAt && payload.seconds) {
       const ms = parseIsoToMs(payload.expireAt)
-      if (ms) payload.expireAt = ms
+      if (ms) payload.startedAt = ms - (payload.seconds * 1000)
+    }
+    if (payload && payload.startedAt) {
+      const ms = parseIsoToMs(payload.startedAt)
+      if (ms) payload.startedAt = ms
     }
     // save as cache
     try {
-      if (payload && payload.expireAt) await saveTimer({ seconds: payload.seconds ?? 0, expireAt: payload.expireAt, ...payload })
+      if (payload && payload.startedAt) await saveTimer({ seconds: payload.seconds ?? 0, startedAt: payload.startedAt, id: payload.id, ...payload })
     } catch (e) {}
     return { source: 'server', data: payload }
   } catch (err) {

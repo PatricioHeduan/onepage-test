@@ -35,25 +35,41 @@ export default function Start() {
 
   const start = () => {
     const totalSeconds = minutes * 60 + seconds
-    setRemaining(totalSeconds)
-    setRunning(true)
-    // Try to post to server; lib will fallback to localStorage if needed
+    const pendingStartedAt = Date.now()
+    // Save pending timer immediately with start timestamp and duration
+    try { localStorage.setItem('sync.timer.pending', JSON.stringify({ startedAt: pendingStartedAt, seconds: totalSeconds })) } catch (e) {}
+
+    // POST to server (api will include startedAt). Only start countdown when response arrives.
     postTimerNetwork({ seconds: totalSeconds }).then(res => {
-      if (res.source === 'server') {
-        // use server expireAt if provided; capture id if returned
-        if (res.data && res.data.id) {
-          setTimerId(res.data.id)
-          try { localStorage.setItem('sync.timer.id', String(res.data.id)) } catch (e) {}
-        }
-      } else {
-        console.log('Saved locally (server unavailable):', res.error)
+      const payload = res.data || {}
+      // Determine authoritative startedAt and seconds
+      const finalStartedAt = payload.startedAt ?? pendingStartedAt
+      const finalSeconds = payload.seconds ?? totalSeconds
+
+      // compute remaining from startedAt + seconds
+      const endMs = finalStartedAt + finalSeconds * 1000
+      const secsLeft = Math.max(0, Math.ceil((endMs - Date.now()) / 1000))
+      setRemaining(secsLeft)
+      setRunning(true)
+
+      // persist final confirmed record and id
+      try { localStorage.setItem('sync.timer.record', JSON.stringify({ startedAt: finalStartedAt, seconds: finalSeconds, id: payload.id })) } catch (e) {}
+      if (payload.id) {
+        setTimerId(payload.id)
+        try { localStorage.setItem('sync.timer.id', String(payload.id)) } catch (e) {}
       }
+
+      // remove pending once started
+      try { localStorage.removeItem('sync.timer.pending') } catch (e) {}
+      if (res.source !== 'server') console.log('Saved locally (server unavailable):', res.error)
     })
   }
 
   const stop = () => {
     setRunning(false)
     clearInterval(intervalRef.current)
+    // remove any pending record
+    try { localStorage.removeItem('sync.timer.pending') } catch (e) {}
     // perform hard delete if we have an id from server
     const storedId = timerId || localStorage.getItem('sync.timer.id')
     if (storedId) {
