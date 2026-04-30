@@ -12,7 +12,7 @@ export default function Sync() {
     if (pollRef.current) return
     pollRef.current = setInterval(() => {
       if (!isFetchingRef.current) refresh({ fromPoll: true })
-    }, 500)
+    }, 1000)
   }
 
   const stopPolling = () => {
@@ -72,8 +72,6 @@ export default function Sync() {
       intervalRef.current = setInterval(() => {
         setRemaining(r => (r > 0 ? r - 1 : 0))
       }, 1000)
-      // when timer is active, stop polling so the UI can run locally
-      stopPolling()
     }
     return () => clearInterval(intervalRef.current)
   }, [remaining])
