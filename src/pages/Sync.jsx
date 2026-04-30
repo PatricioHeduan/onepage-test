@@ -12,7 +12,7 @@ export default function Sync() {
     if (pollRef.current) return
     pollRef.current = setInterval(() => {
       if (!isFetchingRef.current) refresh({ fromPoll: true })
-    }, 1100)
+    }, 1000)
   }
 
   const stopPolling = () => {
@@ -38,8 +38,30 @@ export default function Sync() {
           }
         } catch (e) {}
       }
-      if (data && data.expireAt) {
-        const msLeft = data.expireAt - Date.now()
+      // compute end time from startedAt + seconds, or fallback to expireAt
+      function parseIsoToMs(iso) {
+        if (iso == null) return null
+        if (typeof iso === 'number') return iso
+        if (typeof iso !== 'string') return null
+        const fixed = iso.replace(/(\.\d{3})\d+/, '$1')
+        const t = Date.parse(fixed)
+        if (!isNaN(t)) return t
+        const d = new Date(fixed)
+        if (!isNaN(d.getTime())) return d.getTime()
+        return null
+      }
+
+      let endMs = null
+      if (data) {
+        if (data.startedAt && data.seconds) {
+          const startMs = typeof data.startedAt === 'number' ? data.startedAt : parseIsoToMs(data.startedAt)
+          if (startMs != null) endMs = Number(startMs) + Number(data.seconds) * 1000
+        } else if (data.expireAt) {
+          endMs = typeof data.expireAt === 'number' ? data.expireAt : parseIsoToMs(data.expireAt)
+        }
+      }
+      if (endMs && endMs > Date.now()) {
+        const msLeft = endMs - Date.now()
         setRemaining(Math.max(0, Math.ceil(msLeft / 1000)))
       } else {
         setRemaining(null)
@@ -82,6 +104,8 @@ export default function Sync() {
     return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
   }
 
+  const displaySeconds = remaining != null ? remaining : 0
+
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
       <div style={{padding:24,textAlign:'center'}}>
@@ -95,11 +119,7 @@ export default function Sync() {
       </div>
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        {remaining != null ? (
-          <div style={{fontSize:96,fontWeight:700,lineHeight:1}}>{formatTime(remaining)}</div>
-        ) : (
-          <div style={{fontSize:28,color:'#888'}}>No timer found</div>
-        )}
+        <div style={{fontSize:96,fontWeight:700,lineHeight:1}}>{formatTime(displaySeconds)}</div>
       </div>
     </div>
   )
