@@ -5,8 +5,12 @@ export default function Sync() {
   const [loading, setLoading] = useState(false)
   const [remaining, setRemaining] = useState(null)
   const intervalRef = useRef(null)
+  const pollRef = useRef(null)
+  const isFetchingRef = useRef(false)
 
   const refresh = async () => {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
     setLoading(true)
     try {
       const res = await fetchTimerNetwork()
@@ -20,6 +24,7 @@ export default function Sync() {
     } catch (e) {
       setRemaining(null)
     } finally {
+      isFetchingRef.current = false
       setLoading(false)
     }
   }
@@ -27,7 +32,14 @@ export default function Sync() {
   useEffect(() => {
     // initial refresh
     refresh()
-    return () => clearInterval(intervalRef.current)
+    // polling every 500ms
+    pollRef.current = setInterval(() => {
+      if (!isFetchingRef.current) refresh()
+    }, 500)
+    return () => {
+      clearInterval(intervalRef.current)
+      clearInterval(pollRef.current)
+    }
   }, [])
 
   useEffect(() => {
@@ -48,30 +60,21 @@ export default function Sync() {
 
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
-      <div style={{padding:32,textAlign:'center'}}>
-        <button
-          onClick={refresh}
-          style={{fontSize:20,padding:'14px 28px',borderRadius:10,display:'inline-flex',alignItems:'center',gap:10}}
-          disabled={loading}
-        >
-          {loading ? (
-            'Loading...'
-          ) : (
-            <>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                <path d="M21 12a9 9 0 10-2.6 6.01" stroke="#04293a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M21 3v6h-6" stroke="#04293a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </>
-          )}
+      <div style={{padding:24,textAlign:'center'}}>
+        <button onClick={refresh} style={{fontSize:18,padding:'10px 18px',borderRadius:8,display:'inline-flex',alignItems:'center',gap:8}} disabled={loading}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+            <path d="M21 12a9 9 0 1 0-2.53 6.06" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M21 3v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {loading ? 'Loading...' : 'Re-analizar'}
         </button>
       </div>
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
         {remaining != null ? (
-          <div style={{fontSize:'min(60vw,360px)',fontWeight:800,lineHeight:1}}>{formatTime(remaining)}</div>
+          <div style={{fontSize:64,fontWeight:700}}>{formatTime(remaining)}</div>
         ) : (
-          <div style={{fontSize:36,color:'#888'}}>No timer found</div>
+          <div style={{fontSize:28,color:'#888'}}>No timer found</div>
         )}
       </div>
     </div>
