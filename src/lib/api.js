@@ -81,3 +81,18 @@ export async function fetchTimerNetwork() {
     return { source: 'local', data: local, error: err.message }
   }
 }
+
+export async function deleteTimerNetwork(id) {
+  if (!id) throw new Error('Missing id')
+  try {
+    const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/' + encodeURIComponent(id), {
+      method: 'DELETE',
+    })
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    // attempt to parse response but we don't require it
+    try { await res.json() } catch (e) {}
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+}

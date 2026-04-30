@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { postTimerNetwork } from '../lib/api'
+import { postTimerNetwork, deleteTimerNetwork } from '../lib/api'
 
 function pad(n) {
   return n.toString().padStart(2, '0')
@@ -10,6 +10,7 @@ export default function Start() {
   const [seconds, setSeconds] = useState(0)
   const [running, setRunning] = useState(false)
   const [remaining, setRemaining] = useState(3 * 60)
+  const [timerId, setTimerId] = useState(null)
   const intervalRef = useRef(null)
 
   useEffect(() => {
@@ -39,8 +40,8 @@ export default function Start() {
     // Try to post to server; lib will fallback to localStorage if needed
     postTimerNetwork({ seconds: totalSeconds }).then(res => {
       if (res.source === 'server') {
-        // use server expireAt if provided
-        // no-op here; UI will keep counting
+        // use server expireAt if provided; capture id if returned
+        if (res.data && res.data.id) setTimerId(res.data.id)
       } else {
         console.log('Saved locally (server unavailable):', res.error)
       }
@@ -50,6 +51,13 @@ export default function Start() {
   const stop = () => {
     setRunning(false)
     clearInterval(intervalRef.current)
+    // perform hard delete if we have an id from server
+    if (timerId) {
+      deleteTimerNetwork(timerId).then(res => {
+        if (!res.ok) console.warn('Failed to delete timer:', res.error)
+        setTimerId(null)
+      })
+    }
   }
 
   const mins = Math.floor(remaining / 60)
