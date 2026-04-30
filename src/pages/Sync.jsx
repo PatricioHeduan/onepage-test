@@ -8,37 +8,53 @@ export default function Sync() {
   const pollRef = useRef(null)
   const isFetchingRef = useRef(false)
 
-  const refresh = async () => {
+  const startPolling = () => {
+    if (pollRef.current) return
+    pollRef.current = setInterval(() => {
+      if (!isFetchingRef.current) refresh({ fromPoll: true })
+    }, 500)
+  }
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }
+
+  const refresh = async ({ fromPoll = false } = {}) => {
     if (isFetchingRef.current) return
     isFetchingRef.current = true
-    setLoading(true)
+    if (!fromPoll) setLoading(true)
     try {
       const res = await fetchTimerNetwork()
       const data = res.data
-      if (data && data.expireAt) {
+      if (data && data.expireAt && data.expireAt > Date.now()) {
+        // we have a valid future expireAt -> show timer and stop polling
         const msLeft = data.expireAt - Date.now()
         setRemaining(Math.max(0, Math.ceil(msLeft / 1000)))
+        stopPolling()
       } else {
+        // no valid timer yet: clear remaining and start polling
         setRemaining(null)
+        startPolling()
       }
     } catch (e) {
       setRemaining(null)
+      // on network error, keep polling active so it can recover
+      startPolling()
     } finally {
       isFetchingRef.current = false
-      setLoading(false)
+      if (!fromPoll) setLoading(false)
     }
   }
 
   useEffect(() => {
-    // initial refresh
+    // initial refresh (do not start polling until refresh decides)
     refresh()
-    // polling every 500ms
-    pollRef.current = setInterval(() => {
-      if (!isFetchingRef.current) refresh()
-    }, 500)
     return () => {
       clearInterval(intervalRef.current)
-      clearInterval(pollRef.current)
+      stopPolling()
     }
   }, [])
 
@@ -48,6 +64,8 @@ export default function Sync() {
       intervalRef.current = setInterval(() => {
         setRemaining(r => (r > 0 ? r - 1 : 0))
       }, 1000)
+      // when timer is active, stop polling so the UI can run locally
+      stopPolling()
     }
     return () => clearInterval(intervalRef.current)
   }, [remaining])
@@ -72,7 +90,7 @@ export default function Sync() {
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
         {remaining != null ? (
-          <div style={{fontSize:64,fontWeight:700}}>{formatTime(remaining)}</div>
+          <div style={{fontSize:300,fontWeight:700}}>{formatTime(remaining)}</div>
         ) : (
           <div style={{fontSize:28,color:'#888'}}>No timer found</div>
         )}
