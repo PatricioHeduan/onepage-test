@@ -28,9 +28,9 @@ function parseIsoToMs(iso) {
 }
 
 export async function postTimerNetwork({ seconds }) {
-  // API sends total seconds and startedAt; backend should accept { seconds, startedAt }
-  const startedAt = Date.now()
-  const body = { seconds, startedAt, clientId: getClientId() }
+  // API sends total seconds only; backend may return startedAt in the response.
+  const localStartedAt = Date.now()
+  const body = { seconds, clientId: getClientId() }
   try {
     const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/', {
       method: 'POST',
@@ -52,11 +52,11 @@ export async function postTimerNetwork({ seconds }) {
       if (ms) payload.startedAt = ms
     }
     // persist locally as cache/fallback (we store seconds + startedAt)
-    try { await saveTimer({ seconds: payload.seconds ?? seconds, startedAt: payload.startedAt ?? startedAt, id: payload.id, ...payload }) } catch (e) {}
+    try { await saveTimer({ seconds: payload.seconds ?? seconds, startedAt: payload.startedAt ?? localStartedAt, id: payload.id, ...payload }) } catch (e) {}
     return { source: 'server', data: payload }
   } catch (err) {
     // fallback to local save
-    const record = { seconds, startedAt, createdBy: getClientId() }
+    const record = { seconds, startedAt: localStartedAt, createdBy: getClientId() }
     await saveTimer(record)
     return { source: 'local', data: record, error: err.message }
   }
