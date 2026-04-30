@@ -12,7 +12,7 @@ export default function Sync() {
     if (pollRef.current) return
     pollRef.current = setInterval(() => {
       if (!isFetchingRef.current) refresh({ fromPoll: true })
-    }, 1000)
+  }, 200)
   }
 
   const stopPolling = () => {
