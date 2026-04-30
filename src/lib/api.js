@@ -14,7 +14,7 @@ export async function postTimerNetwork({ seconds }) {
   // API sends only total seconds; backend should accept { seconds }
   const body = { seconds, clientId: getClientId() }
   try {
-    const res = await fetch('/api/timer', {
+    const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -35,7 +35,7 @@ export async function postTimerNetwork({ seconds }) {
 
 export async function fetchTimerNetwork() {
   try {
-    const res = await fetch('/api/timer')
+  const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/')
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const json = await res.json()
     // If server returns found=false, map to null
