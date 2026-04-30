@@ -38,14 +38,16 @@ export async function postTimerNetwork({ seconds }) {
     })
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const json = await res.json()
+    // Support responses that wrap data: { message, data: { seconds, expireAt, ... } }
+    const payload = json && json.data ? json.data : json
     // normalize expireAt (server may return ISO with microseconds)
-    if (json && json.expireAt) {
-      const ms = parseIsoToMs(json.expireAt)
-      if (ms) json.expireAt = ms
+    if (payload && payload.expireAt) {
+      const ms = parseIsoToMs(payload.expireAt)
+      if (ms) payload.expireAt = ms
     }
     // persist locally as cache/fallback
-    try { await saveTimer({ seconds, expireAt: json.expireAt, ...json }) } catch (e) {}
-    return { source: 'server', data: json }
+    try { await saveTimer({ seconds: payload.seconds ?? seconds, expireAt: payload.expireAt, ...payload }) } catch (e) {}
+    return { source: 'server', data: payload }
   } catch (err) {
     // fallback to local save
     const expireAt = Date.now() + seconds * 1000
@@ -60,20 +62,19 @@ export async function fetchTimerNetwork() {
   const res = await fetch('https://test.lila.com.ar/api/timer-api/timer/')
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const json = await res.json()
-    // normalize expireAt coming from server response
-    if (json && json.data && json.data.expireAt) {
-      const ms = parseIsoToMs(json.data.expireAt)
-      if (ms) json.data.expireAt = ms
-      // also copy top-level expireAt for compatibility with older responses
-      json.expireAt = json.data.expireAt
-    }
-    // If server returns found=false, map to null
+    // Support wrapped responses: { message, data: {...} }
     if (json && json.found === false) return { source: 'server', data: null }
+    const payload = json && json.data ? json.data : json
+    // normalize expireAt on the payload
+    if (payload && payload.expireAt) {
+      const ms = parseIsoToMs(payload.expireAt)
+      if (ms) payload.expireAt = ms
+    }
     // save as cache
     try {
-      if (json && json.expireAt) await saveTimer({ seconds: json.seconds ?? 0, expireAt: json.expireAt, ...json })
+      if (payload && payload.expireAt) await saveTimer({ seconds: payload.seconds ?? 0, expireAt: payload.expireAt, ...payload })
     } catch (e) {}
-    return { source: 'server', data: json }
+    return { source: 'server', data: payload }
   } catch (err) {
     // fallback to local stored timer
     const local = await getTimer()

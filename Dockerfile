@@ -10,14 +10,6 @@ RUN npm install --legacy-peer-deps
 # Copiar todo el código fuente
 COPY . .
 
-# Aquí se inyecta la variable de entorno antes de la construcción
-ARG VITE_MP_PUBLIC_KEY
-ENV VITE_MP_PUBLIC_KEY=${VITE_MP_PUBLIC_KEY}
-
-# Aquí puedes usar envsubst si tienes un archivo .env para reemplazar variables, si es necesario
-# Si tu proyecto usa Vite y un archivo .env, asegúrate de reemplazar las variables
-RUN echo "VITE_MP_PUBLIC_KEY=$VITE_MP_PUBLIC_KEY" > .env
-
 # Construir el proyecto
 RUN npm run build
 
