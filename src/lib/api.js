@@ -10,8 +10,9 @@ function getClientId() {
   return id
 }
 
-export async function postTimerNetwork({ minutes, seconds }) {
-  const body = { minutes, seconds, clientId: getClientId() }
+export async function postTimerNetwork({ seconds }) {
+  // API sends only total seconds; backend should accept { seconds }
+  const body = { seconds, clientId: getClientId() }
   try {
     const res = await fetch('/api/timer', {
       method: 'POST',
@@ -21,12 +22,12 @@ export async function postTimerNetwork({ minutes, seconds }) {
     if (!res.ok) throw new Error('HTTP ' + res.status)
     const json = await res.json()
     // persist locally as cache/fallback
-    try { await saveTimer({ minutes, seconds, expireAt: json.expireAt, ...json }) } catch (e) {}
+    try { await saveTimer({ seconds, expireAt: json.expireAt, ...json }) } catch (e) {}
     return { source: 'server', data: json }
   } catch (err) {
     // fallback to local save
-    const expireAt = Date.now() + (minutes * 60 + seconds) * 1000
-    const record = { minutes, seconds, expireAt, createdBy: getClientId() }
+    const expireAt = Date.now() + seconds * 1000
+    const record = { seconds, expireAt, createdBy: getClientId() }
     await saveTimer(record)
     return { source: 'local', data: record, error: err.message }
   }
@@ -41,7 +42,7 @@ export async function fetchTimerNetwork() {
     if (json && json.found === false) return { source: 'server', data: null }
     // save as cache
     try {
-      if (json && json.expireAt) await saveTimer({ minutes: json.minutes ?? 0, seconds: json.seconds ?? 0, expireAt: json.expireAt, ...json })
+      if (json && json.expireAt) await saveTimer({ seconds: json.seconds ?? 0, expireAt: json.expireAt, ...json })
     } catch (e) {}
     return { source: 'server', data: json }
   } catch (err) {

@@ -33,10 +33,11 @@ export default function Start() {
   }, [running])
 
   const start = () => {
-    setRemaining(minutes * 60 + seconds)
+    const totalSeconds = minutes * 60 + seconds
+    setRemaining(totalSeconds)
     setRunning(true)
     // Try to post to server; lib will fallback to localStorage if needed
-    postTimerNetwork({ minutes, seconds }).then(res => {
+    postTimerNetwork({ seconds: totalSeconds }).then(res => {
       if (res.source === 'server') {
         // use server expireAt if provided
         // no-op here; UI will keep counting
