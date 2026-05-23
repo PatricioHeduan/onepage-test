@@ -136,8 +136,8 @@ export default function Sync() {
           color:'#000',
           background:timerColor(),
           transition:'background 0.6s',
-          borderRadius:16,
-          padding:'24px 48px',
+          borderRadius:24,
+          padding:'48px 96px',
         }}>{formatTime(displaySeconds)}</div>
       </div>
     </div>
