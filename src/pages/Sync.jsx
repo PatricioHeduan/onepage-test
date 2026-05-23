@@ -4,6 +4,7 @@ import { fetchTimerNetwork } from '../lib/api'
 export default function Sync() {
   const [loading, setLoading] = useState(false)
   const [remaining, setRemaining] = useState(null)
+  const totalRef = useRef(null)   // total seconds of the active timer
   const intervalRef = useRef(null)
   const pollRef = useRef(null)
   const isFetchingRef = useRef(false)
@@ -62,8 +63,11 @@ export default function Sync() {
       }
       if (endMs && endMs > Date.now()) {
         const msLeft = endMs - Date.now()
-        setRemaining(Math.max(0, Math.ceil(msLeft / 1000)))
+        const secs = Math.max(0, Math.ceil(msLeft / 1000))
+        if (data && data.seconds) totalRef.current = Number(data.seconds)
+        setRemaining(secs)
       } else {
+        totalRef.current = null
         setRemaining(null)
       }
       // ensure polling is running so new timers are detected
@@ -106,6 +110,14 @@ export default function Sync() {
 
   const displaySeconds = remaining != null ? remaining : 0
 
+  function timerColor() {
+    if (!totalRef.current || remaining == null) return '#e6eef8'
+    const ratio = remaining / totalRef.current  // 1 = just started, 0 = finished
+    if (ratio > 2 / 3) return '#4ade80'   // green  — first third
+    if (ratio > 1 / 3) return '#fb923c'   // orange — second third
+    return '#f87171'                       // red    — last third
+  }
+
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
       <div style={{padding:24,textAlign:'center'}}>
@@ -119,7 +131,7 @@ export default function Sync() {
       </div>
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{fontSize:96,fontWeight:700,lineHeight:1}}>{formatTime(displaySeconds)}</div>
+        <div style={{fontSize:96,fontWeight:700,lineHeight:1,color:timerColor(),transition:'color 0.6s'}}>{formatTime(displaySeconds)}</div>
       </div>
     </div>
   )
