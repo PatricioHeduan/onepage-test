@@ -131,7 +131,14 @@ export default function Sync() {
       </div>
 
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{fontSize:96,fontWeight:700,lineHeight:1,color:timerColor(),transition:'color 0.6s'}}>{formatTime(displaySeconds)}</div>
+        <div style={{
+          fontSize:96,fontWeight:700,lineHeight:1,
+          color:'#000',
+          background:timerColor(),
+          transition:'background 0.6s',
+          borderRadius:16,
+          padding:'24px 48px',
+        }}>{formatTime(displaySeconds)}</div>
       </div>
     </div>
   )
