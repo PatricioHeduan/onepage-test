@@ -114,7 +114,7 @@ export default function Sync() {
     if (!totalRef.current || remaining == null) return '#e6eef8'
     const ratio = remaining / totalRef.current  // 1 = just started, 0 = finished
     if (ratio > 2 / 3) return '#4ade80'   // green  — first third
-    if (ratio > 1 / 3) return '#fb923c'   // orange — second third
+    if (ratio > 1 / 3) return '#ddeb22ff'   // orange — second third
     return '#f87171'                       // red    — last third
   }
 
