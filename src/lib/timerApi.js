@@ -1,4 +1,4 @@
-const BASE = 'http://test.lila.com.ar/api/timer-api/timer'
+const BASE = 'https://test.lila.com.ar/api/timer-api/timer'
 
 function unwrap(json) {
   return json && json.data !== undefined ? json.data : json
