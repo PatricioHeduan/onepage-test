@@ -1,111 +1,171 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { postTimerNetwork, deleteTimerNetwork } from '../lib/api'
+import { useNavigate } from 'react-router-dom'
+import { timerApi } from '../lib/timerApi'
+import { useTimer } from '../context/TimerContext'
 
-function pad(n) {
-  return n.toString().padStart(2, '0')
+function pad(n) { return String(Math.max(0, n)).padStart(2, '0') }
+function formatTime(s) {
+  if (s == null || s < 0) s = 0
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`
 }
 
 export default function Start() {
-  const [minutes, setMinutes] = useState(3)
-  const [seconds, setSeconds] = useState(0)
-  const [running, setRunning] = useState(false)
-  const [remaining, setRemaining] = useState(3 * 60)
-  const [timerId, setTimerId] = useState(null)
-  const intervalRef = useRef(null)
+  const { timer, setTimer, remainingSeconds, setRemainingSeconds, paused, setPaused } = useTimer()
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [actionError, setActionError] = useState(null)
+  const [loadingPauseResume, setLoadingPauseResume] = useState(false)
+  const [loadingDelete, setLoadingDelete] = useState(false)
 
-  useEffect(() => {
-    setRemaining(minutes * 60 + seconds)
-  }, [minutes, seconds])
+  const countdownRef = useRef(null)
+  const pollRef = useRef(null)
+  const navigate = useNavigate()
 
+  // ── local countdown tick ──────────────────────────────────────────────────
   useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setRemaining(r => {
-          if (r <= 1) {
-            clearInterval(intervalRef.current)
-            setRunning(false)
-            return 0
-          }
-          return r - 1
-        })
+    clearInterval(countdownRef.current)
+    if (!paused && remainingSeconds != null && remainingSeconds > 0) {
+      countdownRef.current = setInterval(() => {
+        setRemainingSeconds(r => (r > 0 ? r - 1 : 0))
       }, 1000)
     }
-    return () => clearInterval(intervalRef.current)
-  }, [running])
+    return () => clearInterval(countdownRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, timer?.id])
 
-  const start = () => {
-    const totalSeconds = minutes * 60 + seconds
-    const pendingStartedAt = Date.now()
-    // Save pending timer immediately with start timestamp and duration
-    try { localStorage.setItem('sync.timer.pending', JSON.stringify({ startedAt: pendingStartedAt, seconds: totalSeconds })) } catch (e) {}
-
-    // POST to server (api will include startedAt). Only start countdown when response arrives.
-    postTimerNetwork({ seconds: totalSeconds }).then(res => {
-      const payload = res.data || {}
-      // Determine authoritative startedAt and seconds
-      const finalStartedAt = payload.startedAt ?? pendingStartedAt
-      const finalSeconds = payload.seconds ?? totalSeconds
-
-      // compute remaining from startedAt + seconds
-      const endMs = finalStartedAt + finalSeconds * 1000
-      const secsLeft = Math.max(0, Math.ceil((endMs - Date.now()) / 1000))
-      setRemaining(secsLeft)
-      setRunning(true)
-
-      // persist final confirmed record and id
-      try { localStorage.setItem('sync.timer.record', JSON.stringify({ startedAt: finalStartedAt, seconds: finalSeconds, id: payload.id })) } catch (e) {}
-      if (payload.id) {
-        setTimerId(payload.id)
-        try { localStorage.setItem('sync.timer.id', String(payload.id)) } catch (e) {}
-      }
-
-      // remove pending once started
-      try { localStorage.removeItem('sync.timer.pending') } catch (e) {}
-      if (res.source !== 'server') console.log('Saved locally (server unavailable):', res.error)
-    })
+  // ── re-seed from sync if drift > 2s; update paused state ─────────────────
+  const syncFromServer = async (id) => {
+    try {
+      const data = await timerApi.sync(id)
+      const serverRemaining = data.remainingSeconds ?? data.remaining_seconds ?? 0
+      const serverPaused = data.paused ?? false
+      setPaused(serverPaused)
+      setRemainingSeconds(prev => {
+        if (prev == null || Math.abs(prev - serverRemaining) > 2) return serverRemaining
+        return prev
+      })
+    } catch (_) { /* keep local countdown on error */ }
   }
 
-  const stop = () => {
-    setRunning(false)
-    clearInterval(intervalRef.current)
-    // remove any pending record
-    try { localStorage.removeItem('sync.timer.pending') } catch (e) {}
-    // perform hard delete if we have an id from server
-    const storedId = timerId || localStorage.getItem('sync.timer.id')
-    if (storedId) {
-      deleteTimerNetwork(storedId).then(res => {
-        if (!res.ok) console.warn('Failed to delete timer:', res.error)
-        setTimerId(null)
-        try { localStorage.removeItem('sync.timer.id') } catch (e) {}
-      })
+  // ── mount: fetch last timer, seed from sync, start 5s poll ───────────────
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      setInitialLoading(true)
+      setLoadError(null)
+      try {
+        const data = await timerApi.getLast()
+        if (cancelled) return
+        if (data && data.id) {
+          setTimer(data)
+          const syncData = await timerApi.sync(data.id)
+          if (cancelled) return
+          setPaused(syncData.paused ?? false)
+          setRemainingSeconds(syncData.remainingSeconds ?? syncData.remaining_seconds ?? 0)
+          pollRef.current = setInterval(() => syncFromServer(data.id), 5000)
+        } else {
+          setTimer(null)
+          setRemainingSeconds(null)
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e.message)
+      } finally {
+        if (!cancelled) setInitialLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+      clearInterval(pollRef.current)
+      clearInterval(countdownRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── pause / resume ────────────────────────────────────────────────────────
+  const handlePauseResume = async () => {
+    if (!timer) return
+    setLoadingPauseResume(true)
+    setActionError(null)
+    try {
+      if (paused) {
+        await timerApi.resume(timer.id)
+        setPaused(false)
+      } else {
+        await timerApi.pause(timer.id)
+        setPaused(true)
+      }
+    } catch (e) {
+      setActionError(e.message)
+    } finally {
+      setLoadingPauseResume(false)
     }
   }
 
-  const mins = Math.floor(remaining / 60)
-  const secs = remaining % 60
+  // ── delete ────────────────────────────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!timer) return
+    setLoadingDelete(true)
+    setActionError(null)
+    try {
+      await timerApi.deleteById(timer.id)
+      clearInterval(pollRef.current)
+      clearInterval(countdownRef.current)
+      setTimer(null)
+      setRemainingSeconds(null)
+      setPaused(false)
+    } catch (e) {
+      setActionError(e.message)
+    } finally {
+      setLoadingDelete(false)
+    }
+  }
+
+  if (initialLoading) return <div className="page"><p>Loading...</p></div>
+  if (loadError) return <div className="page"><p className="error">Error: {loadError}</p></div>
 
   return (
     <div className="page">
-      <h1>Iniciar cronometro</h1>
-      <div className="controls">
-        <label>
-          Minutes
-          <input type="number" min="0" value={minutes} onChange={e => setMinutes(Number(e.target.value))} />
-        </label>
-        <label>
-          Seconds
-          <input type="number" min="0" max="59" value={seconds} onChange={e => setSeconds(Number(e.target.value))} />
-        </label>
-      </div>
-
-      <div className="timer">
-        <span className="time">{pad(mins)}:{pad(secs)}</span>
-      </div>
-
-      <div className="actions">
-        <button onClick={start} disabled={running}>Start</button>
-        <button onClick={stop} disabled={!running}>Stop</button>
-      </div>
+      <h1>Timer</h1>
+      {timer ? (
+        <>
+          <h2 style={{ marginBottom: 8 }}>{timer.title}</h2>
+          <div className="timer">
+            <span className="time">{formatTime(remainingSeconds)}</span>
+          </div>
+          {paused && <p style={{ textAlign: 'center', opacity: 0.6 }}>⏸ Paused</p>}
+          {actionError && <p className="error">{actionError}</p>}
+          <div className="actions">
+            <button onClick={handlePauseResume} disabled={loadingPauseResume}>
+              {loadingPauseResume ? '...' : paused ? 'Resume' : 'Pause'}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={loadingDelete}
+              style={{ background: '#f87171', borderColor: '#f87171' }}
+            >
+              {loadingDelete ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+          <div className="actions" style={{ marginTop: 12 }}>
+            <button
+              onClick={() => navigate('/create')}
+              style={{ background: 'transparent', color: 'var(--accent)' }}
+            >
+              + New timer
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p>No active timer.</p>
+          <div className="actions">
+            <button onClick={() => navigate('/create')}>Create timer</button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
