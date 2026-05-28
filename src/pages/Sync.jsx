@@ -120,19 +120,9 @@ export default function Sync() {
 
   return (
     <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
-      <div style={{padding:24,textAlign:'center'}}>
-        <button onClick={refresh} style={{fontSize:18,padding:'10px 18px',borderRadius:8,display:'inline-flex',alignItems:'center',gap:8}} disabled={loading}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-            <path d="M21 12a9 9 0 1 0-2.53 6.06" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M21 3v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {loading ? 'Loading...' : 'Re-analizar'}
-        </button>
-      </div>
-
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{
-          fontSize:96,fontWeight:700,lineHeight:1,
+          fontSize:168,fontWeight:700,lineHeight:1,
           color:'#000',
           background:timerColor(),
           transition:'background 0.6s',
