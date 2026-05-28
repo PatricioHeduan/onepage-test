@@ -119,17 +119,20 @@ export default function Sync() {
   }
 
   return (
-    <div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{
-          fontSize:168,fontWeight:700,lineHeight:1,
-          color:'#000',
-          background:timerColor(),
-          transition:'background 0.6s',
-          borderRadius:24,
-          padding:'48px 96px',
-        }}>{formatTime(displaySeconds)}</div>
-      </div>
+    <div style={{
+      height:'100vh',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      background: timerColor(),
+      transition:'background 0.6s',
+    }}>
+      <div style={{
+        fontSize:'20vw',
+        fontWeight:700,
+        lineHeight:1,
+        color:'#000',
+      }}>{formatTime(displaySeconds)}</div>
     </div>
   )
 }
