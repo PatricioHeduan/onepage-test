@@ -13,7 +13,7 @@ export default function Sync() {
     if (pollRef.current) return
     pollRef.current = setInterval(() => {
       if (!isFetchingRef.current) refresh({ fromPoll: true })
-  }, 200)
+    }, 200)
   }
 
   const stopPolling = () => {
@@ -37,7 +37,7 @@ export default function Sync() {
           if (String(stored) !== String(data.id)) {
             localStorage.setItem('sync.timer.id', String(data.id))
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       // compute end time from startedAt + seconds, or fallback to expireAt
       function parseIsoToMs(iso) {
@@ -105,7 +105,7 @@ export default function Sync() {
   function formatTime(s) {
     const mm = Math.floor(s / 60)
     const ss = s % 60
-    return `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
+    return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
   }
 
   const displaySeconds = remaining != null ? remaining : 0
@@ -113,25 +113,25 @@ export default function Sync() {
   function timerColor() {
     if (!totalRef.current || remaining == null) return '#e6eef8'
     const ratio = remaining / totalRef.current  // 1 = just started, 0 = finished
-    if (ratio > 2 / 3) return '#4ade80'   // pastel green  — first third
-    if (ratio > 1 / 3) return '#fde047'   // pastel yellow — second third
-    return '#f87171'                       // pastel red    — last third
+    if (ratio > 2 / 3) return '#22c55e'   // vibrant green  — first third
+    if (ratio > 1 / 3) return '#eab308'   // vibrant yellow — second third
+    return '#ef4444'                       // vibrant red    — last third
   }
-
+  ss
   return (
     <div style={{
-      height:'100vh',
-      display:'flex',
-      alignItems:'center',
-      justifyContent:'center',
+      height: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       background: timerColor(),
-      transition:'background 0.6s',
+      transition: 'background 0.8s',
     }}>
       <div style={{
-        fontSize:'20vw',
-        fontWeight:700,
-        lineHeight:1,
-        color:'#000',
+        fontSize: '33vw',
+        fontWeight: 700,
+        lineHeight: 1,
+        color: '#000',
       }}>{formatTime(displaySeconds)}</div>
     </div>
   )
