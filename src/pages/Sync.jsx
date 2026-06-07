@@ -117,7 +117,7 @@ export default function Sync() {
     if (ratio > 1 / 3) return '#eab308'   // vibrant yellow — second third
     return '#ef4444'                       // vibrant red    — last third
   }
-  ss
+
   return (
     <div style={{
       height: '100vh',
